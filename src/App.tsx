@@ -721,6 +721,8 @@ function ModalShell({
 }
 
 function AboutModal({ onClose }: { onClose: () => void }) {
+  const githubRepoUrl = "https://github.com/Selee1995/---HTML-";
+
   return (
     <ModalShell
       eyebrow="关于作者"
@@ -730,11 +732,38 @@ function AboutModal({ onClose }: { onClose: () => void }) {
     >
       <div className="space-y-4 text-sm leading-7 text-zinc-700">
         <p>
-          <strong className="text-zinc-950">作者：</strong>Selee1995
+          <strong className="text-zinc-950">作者：</strong>李斯特
         </p>
         <p>
           <strong className="text-zinc-950">项目：</strong>汉东人格档案
         </p>
+        <div className="space-y-3 rounded-2xl border border-zinc-200 bg-[#fbf8f2] p-4 text-zinc-700">
+          <p className="flex flex-wrap items-center justify-between gap-3">
+            <span className="font-semibold text-zinc-950">微信号</span>
+            <span className="font-medium text-zinc-800">REVFIX</span>
+          </p>
+          <p className="flex flex-wrap items-center justify-between gap-3">
+            <span className="font-semibold text-zinc-950">QQ号</span>
+            <span className="font-medium text-zinc-800">1278329021</span>
+          </p>
+          <p className="flex flex-wrap items-center justify-between gap-3">
+            <span className="font-semibold text-zinc-950">QQ邮箱</span>
+            <a className="font-medium text-red-900 underline decoration-red-900/40 underline-offset-4" href="mailto:1278329021@qq.com">
+              1278329021@qq.com
+            </a>
+          </p>
+          <p className="flex flex-wrap items-center justify-between gap-3">
+            <span className="font-semibold text-zinc-950">GitHub仓库</span>
+            <a
+              className="font-medium text-red-900 underline decoration-red-900/40 underline-offset-4"
+              href={githubRepoUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              github.com/Selee1995/---HTML-
+            </a>
+          </p>
+        </div>
         <p>
           这是一个由 Codex 协助制作的非官方娱乐测试网站。它借用了《人民的名义》的角色气质和组织张力，
           做成了一个能测、能看档案、能继续点角色的网页。
