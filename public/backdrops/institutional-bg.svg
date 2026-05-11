@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="paper" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f4ecdc"/>
+      <stop offset="0.48" stop-color="#e9dcc6"/>
+      <stop offset="1" stop-color="#d8c4a4"/>
+    </linearGradient>
+    <radialGradient id="redGlow" cx="28%" cy="18%" r="55%">
+      <stop offset="0" stop-color="#9f1d1d" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#9f1d1d" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+    <pattern id="grid" width="54" height="54" patternUnits="userSpaceOnUse">
+      <path d="M54 0H0V54" fill="none" stroke="#5f4630" stroke-opacity="0.09" stroke-width="1"/>
+    </pattern>
+    <pattern id="paperNoise" width="160" height="160" patternUnits="userSpaceOnUse">
+      <circle cx="21" cy="38" r="1.2" fill="#3f2d1f" opacity="0.08"/>
+      <circle cx="107" cy="26" r="1" fill="#7f1d1d" opacity="0.08"/>
+      <circle cx="72" cy="116" r="1.5" fill="#3f2d1f" opacity="0.06"/>
+      <circle cx="143" cy="97" r="0.9" fill="#3f2d1f" opacity="0.08"/>
+    </pattern>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#paper)"/>
+  <rect width="1600" height="1000" fill="url(#redGlow)"/>
+  <rect width="1600" height="1000" fill="url(#grid)"/>
+  <rect width="1600" height="1000" fill="url(#paperNoise)"/>
+
+  <path d="M0 130 C230 74 388 118 568 88 C807 48 1030 36 1600 86 L1600 0 L0 0Z" fill="#6f1111" opacity="0.88"/>
+  <path d="M0 158 C238 101 410 146 610 116 C856 79 1050 70 1600 117" fill="none" stroke="#f6d38f" stroke-width="4" opacity="0.48"/>
+
+  <g opacity="0.28" transform="translate(1080 170)">
+    <rect x="0" y="158" width="360" height="18" fill="#211915"/>
+    <path d="M35 158V62H82V158M126 158V62H173V158M217 158V62H264V158M308 158V62H355V158" fill="none" stroke="#211915" stroke-width="12"/>
+    <path d="M-20 62 L178 0 L382 62Z" fill="#211915"/>
+    <rect x="-28" y="176" width="418" height="22" fill="#211915"/>
+  </g>
+
+  <g opacity="0.16" transform="translate(90 585)">
+    <ellipse cx="310" cy="190" rx="300" ry="62" fill="#211915"/>
+    <rect x="58" y="120" width="504" height="64" rx="32" fill="#211915"/>
+    <path d="M118 112 C205 42 407 40 505 112" fill="none" stroke="#211915" stroke-width="28" stroke-linecap="round"/>
+    <circle cx="150" cy="114" r="20" fill="#211915"/>
+    <circle cx="470" cy="114" r="20" fill="#211915"/>
+  </g>
+
+  <g opacity="0.2" transform="translate(1120 570)">
+    <rect x="0" y="120" width="320" height="210" rx="10" fill="#241712"/>
+    <rect x="28" y="152" width="264" height="24" fill="#ead8ba" opacity="0.55"/>
+    <rect x="28" y="194" width="190" height="18" fill="#ead8ba" opacity="0.44"/>
+    <rect x="28" y="230" width="240" height="18" fill="#ead8ba" opacity="0.44"/>
+    <rect x="28" y="266" width="164" height="18" fill="#ead8ba" opacity="0.44"/>
+    <circle cx="254" cy="270" r="54" fill="none" stroke="#8c1d18" stroke-width="12" opacity="0.8"/>
+    <path d="M222 270H286M254 238V302" stroke="#8c1d18" stroke-width="8" opacity="0.6"/>
+  </g>
+
+  <g opacity="0.22" transform="translate(660 270)">
+    <path d="M0 410 H550" stroke="#211915" stroke-width="5"/>
+    <path d="M18 410 V265 H62 V410 M96 410 V215 H143 V410 M178 410 V300 H224 V410 M265 410 V185 H310 V410 M352 410 V245 H396 V410 M438 410 V126 H486 V410" fill="none" stroke="#211915" stroke-width="15"/>
+    <path d="M-20 414 C120 320 196 330 308 244 C410 166 465 152 540 84" fill="none" stroke="#8c1d18" stroke-width="12" stroke-opacity="0.36"/>
+  </g>
+
+  <g opacity="0.42" transform="translate(148 172) rotate(-8)">
+    <circle cx="78" cy="78" r="62" fill="none" stroke="#8c1d18" stroke-width="9"/>
+    <circle cx="78" cy="78" r="42" fill="none" stroke="#8c1d18" stroke-width="3"/>
+    <path d="M42 78H114M78 43V113M54 55L103 103M103 55L54 103" stroke="#8c1d18" stroke-width="5" stroke-linecap="square"/>
+  </g>
+
+  <g opacity="0.26" transform="translate(1250 330) rotate(10)">
+    <circle cx="62" cy="62" r="50" fill="none" stroke="#8c1d18" stroke-width="8"/>
+    <path d="M32 62H92M62 32V92" stroke="#8c1d18" stroke-width="5"/>
+  </g>
+
+  <path d="M116 480 C260 426 480 442 612 370 C706 318 728 255 780 208" fill="none" stroke="#7f1d1d" stroke-width="18" stroke-opacity="0.1" filter="url(#blur)"/>
+  <path d="M0 1000 C250 858 472 912 652 823 C806 747 930 674 1120 700 C1334 728 1430 655 1600 596 L1600 1000Z" fill="#271a16" opacity="0.16"/>
+  <rect width="1600" height="1000" fill="#fff7ed" opacity="0.24"/>
+</svg>
