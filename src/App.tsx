@@ -176,8 +176,19 @@ function App() {
 
 function LandingPage({ onStart }: { onStart: () => void }) {
   return (
-    <section className="mx-auto flex min-h-[calc(100vh-48px)] max-w-5xl flex-col justify-between px-5 py-6 sm:px-8 lg:py-10">
-      <nav className="flex items-center justify-between text-sm text-zinc-700">
+    <section className="relative isolate mx-auto flex min-h-[calc(100vh-48px)] max-w-5xl flex-col justify-between overflow-hidden px-5 py-6 sm:px-8 lg:py-10">
+      <img
+        alt="原创群像剪影"
+        className="pointer-events-none absolute -right-[430px] bottom-24 z-0 h-[520px] max-w-none opacity-60 mix-blend-multiply sm:-right-52 sm:h-[620px] lg:hidden"
+        src="/backdrops/cast-silhouette-4x3.png"
+        style={{
+          WebkitMaskImage: "linear-gradient(to left, black 42%, rgba(0,0,0,0.72) 62%, transparent 92%)",
+          maskImage: "linear-gradient(to left, black 42%, rgba(0,0,0,0.72) 62%, transparent 92%)",
+        }}
+      />
+      <div className="absolute inset-x-0 bottom-0 z-0 h-56 bg-gradient-to-t from-[#f6f1e8] via-[#f6f1e8]/80 to-transparent lg:hidden" />
+
+      <nav className="relative z-10 flex items-center justify-between text-sm text-zinc-700">
         <span className="inline-flex items-center gap-2 font-medium">
           <FileText className="size-4" />
           汉东人格档案
@@ -185,7 +196,7 @@ function LandingPage({ onStart }: { onStart: () => void }) {
         <span>16 题</span>
       </nav>
 
-      <div className="grid items-end gap-8 py-10 lg:grid-cols-[1fr_360px]">
+      <div className="relative z-10 grid items-end gap-8 py-10 lg:grid-cols-[1fr_360px]">
         <div className="max-w-3xl">
           <p className="mb-4 inline-flex items-center gap-2 border border-red-900/20 bg-white/55 px-3 py-1 text-sm text-red-950 shadow-sm">
             <ShieldCheck className="size-4" />
@@ -208,20 +219,23 @@ function LandingPage({ onStart }: { onStart: () => void }) {
           </button>
         </div>
 
-        <div className="relative hidden min-h-[460px] border border-red-950/15 bg-[#ede0cb] p-6 shadow-seal lg:block">
-          <div className="absolute right-6 top-6 h-24 w-24 rounded-full border-[10px] border-red-900/75 opacity-90" />
-          <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-red-950/20 to-transparent" />
+        <div className="relative hidden min-h-[520px] overflow-hidden border border-red-950/15 bg-[#17110f] p-6 shadow-seal lg:block">
+          <img
+            alt="原创群像剪影"
+            className="absolute inset-0 h-full w-full object-cover opacity-95"
+            src="/backdrops/cast-silhouette-4x3.png"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
           <div className="relative flex h-full flex-col justify-between">
             <div>
-              <p className="text-sm font-semibold text-red-900">内部流转 / 人格档案</p>
-              <div className="mt-8 space-y-3 text-3xl font-black text-zinc-900">
+              <p className="text-sm font-semibold text-red-100">内部流转 / 群像档案</p>
+              <div className="mt-8 space-y-3 text-3xl font-black text-white">
+                <p>权力关系</p>
                 <p>风险边界</p>
-                <p>推进方式</p>
-                <p>关系判断</p>
                 <p>组织生存</p>
               </div>
             </div>
-            <p className="text-sm leading-6 text-zinc-600">{disclaimer}</p>
+            <p className="text-sm leading-6 text-white/68">{disclaimer}</p>
           </div>
         </div>
       </div>
