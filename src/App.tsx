@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Clipboard, FileText, RefreshCcw, ShieldCheck, Sparkles } from "lucide-react";
+import type { FormEvent, ReactNode } from "react";
+import { ArrowLeft, Clipboard, FileText, Info, Mail, RefreshCcw, ShieldCheck, Sparkles, X } from "lucide-react";
 import { questions } from "../data/questions";
 import { results } from "../data/results";
 import type { AnswerMap, QuizResult, ResultId } from "../data/types";
 import { calculateResult, getScoreMap } from "../utils/scoring";
 
 type Stage = "landing" | "quiz" | "loading" | "result";
+type DialogState = "feedback" | "about" | null;
 
 const disclaimer =
   "本测试为非官方影视娱乐人格测试，仅用于娱乐和自我观察；不涉及现实人物、现实机构或政治评价，也不构成心理诊断。";
@@ -54,6 +56,8 @@ function App() {
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [copied, setCopied] = useState(false);
   const [activeArchiveId, setActiveArchiveId] = useState<ResultId | null>(null);
+  const [dialogState, setDialogState] = useState<DialogState>(null);
+  const [feedbackContext, setFeedbackContext] = useState("开始界面");
 
   const currentQuestion = questions[currentIndex];
   const answeredCount = Object.keys(answers).length;
@@ -130,6 +134,19 @@ function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function openFeedback(context: string) {
+    setFeedbackContext(context);
+    setDialogState("feedback");
+  }
+
+  function openAbout() {
+    setDialogState("about");
+  }
+
+  function closeDialog() {
+    setDialogState(null);
+  }
+
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#f6f1e8] text-zinc-950">
       <div className="pointer-events-none fixed inset-0 z-0 bg-[#eadcc4]">
@@ -141,7 +158,7 @@ function App() {
       </div>
 
       <div className="relative z-10">
-        {stage === "landing" && <LandingPage onStart={startQuiz} />}
+        {stage === "landing" && <LandingPage onStart={startQuiz} onOpenFeedback={openFeedback} onOpenAbout={openAbout} />}
         {stage === "quiz" && (
           <QuizPage
             currentIndex={currentIndex}
@@ -163,8 +180,13 @@ function App() {
             onCopy={copyShareText}
             onOpenArchive={openArchive}
             onRestart={startQuiz}
+            onOpenFeedback={() => openFeedback(`结果页 · ${finalResult.name}`)}
+            onOpenAbout={openAbout}
           />
         )}
+
+        {dialogState === "feedback" && <FeedbackModal contextLabel={feedbackContext} onClose={closeDialog} />}
+        {dialogState === "about" && <AboutModal onClose={closeDialog} />}
 
         <footer className="mx-auto max-w-5xl px-5 pb-6 text-center text-xs leading-5 text-zinc-500">
           {answeredCount > 0 && stage !== "landing" ? `已记录 ${answeredCount}/${questions.length} 道选择。` : disclaimer}
@@ -174,7 +196,15 @@ function App() {
   );
 }
 
-function LandingPage({ onStart }: { onStart: () => void }) {
+function LandingPage({
+  onStart,
+  onOpenFeedback,
+  onOpenAbout,
+}: {
+  onStart: () => void;
+  onOpenFeedback: (context: string) => void;
+  onOpenAbout: () => void;
+}) {
   return (
     <section className="relative isolate mx-auto flex min-h-[calc(100vh-48px)] max-w-5xl flex-col justify-between overflow-hidden px-5 py-6 sm:px-8 lg:py-10">
       <img
@@ -217,6 +247,24 @@ function LandingPage({ onStart }: { onStart: () => void }) {
             <Sparkles className="size-5" />
             开始接受组织考察
           </button>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              className="inline-flex h-11 items-center gap-2 border border-red-900/20 bg-white/70 px-4 text-sm font-semibold text-zinc-900 shadow-sm transition hover:border-red-900/40 hover:bg-white focus:outline-none focus:ring-4 focus:ring-red-900/15"
+              onClick={() => onOpenFeedback("开始界面")}
+              type="button"
+            >
+              <Mail className="size-4" />
+              想向作者提意见？
+            </button>
+            <button
+              className="inline-flex h-11 items-center gap-2 border border-zinc-300 bg-white/70 px-4 text-sm font-semibold text-zinc-900 shadow-sm transition hover:border-red-900/40 hover:bg-white focus:outline-none focus:ring-4 focus:ring-red-900/15"
+              onClick={onOpenAbout}
+              type="button"
+            >
+              <Info className="size-4" />
+              关于作者
+            </button>
+          </div>
         </div>
 
         <div className="relative hidden min-h-[520px] overflow-hidden border border-red-950/15 bg-[#17110f] p-6 shadow-seal lg:block">
@@ -323,6 +371,8 @@ function ResultPage({
   onCopy,
   onOpenArchive,
   onRestart,
+  onOpenFeedback,
+  onOpenAbout,
 }: {
   result: QuizResult;
   topScores: Array<{ result: QuizResult; score: number }>;
@@ -330,6 +380,8 @@ function ResultPage({
   onCopy: () => void;
   onOpenArchive: (resultId: ResultId) => void;
   onRestart: () => void;
+  onOpenFeedback: () => void;
+  onOpenAbout: () => void;
 }) {
   return (
     <section className="mx-auto max-w-4xl px-5 py-6 sm:px-8 lg:py-10">
@@ -422,6 +474,25 @@ function ResultPage({
             >
               <RefreshCcw className="size-5" />
               重新测试
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-3 lg:col-span-2">
+            <button
+              className="inline-flex h-11 items-center gap-2 border border-red-900/20 bg-white px-4 text-sm font-semibold text-zinc-900 transition hover:border-red-900/40 hover:bg-[#fbf8f2] focus:outline-none focus:ring-4 focus:ring-red-900/15"
+              onClick={onOpenFeedback}
+              type="button"
+            >
+              <Mail className="size-4" />
+              想向作者提意见？
+            </button>
+            <button
+              className="inline-flex h-11 items-center gap-2 border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 transition hover:border-red-900/40 hover:bg-[#fbf8f2] focus:outline-none focus:ring-4 focus:ring-red-900/15"
+              onClick={onOpenAbout}
+              type="button"
+            >
+              <Info className="size-4" />
+              关于作者
             </button>
           </div>
         </div>
@@ -585,6 +656,230 @@ function ResultBlock({ title, items }: { title: string; items: string[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+function ModalShell({
+  title,
+  eyebrow,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  eyebrow: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
+      <button
+        aria-label="关闭弹窗"
+        className="absolute inset-0 bg-black/55 backdrop-blur-[1px]"
+        onClick={onClose}
+        type="button"
+      />
+      <div className="relative w-full max-w-xl overflow-hidden border border-red-950/10 bg-[#fffdf8] shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-red-950/10 px-5 py-4 sm:px-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-red-900/70">{eyebrow}</p>
+            <h2 className="mt-1 text-2xl font-black text-zinc-950">{title}</h2>
+            {subtitle ? <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600">{subtitle}</p> : null}
+          </div>
+          <button
+            aria-label="关闭"
+            className="inline-flex size-10 items-center justify-center border border-zinc-200 bg-white text-zinc-700 transition hover:border-red-900/40 hover:text-zinc-950 focus:outline-none focus:ring-4 focus:ring-red-900/15"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+        <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function AboutModal({ onClose }: { onClose: () => void }) {
+  return (
+    <ModalShell
+      eyebrow="关于作者"
+      subtitle="这份测试是一个娱乐向的汉东人物气质项目，重点放在人物关系、组织氛围和测完后的继续浏览体验。"
+      title="作者与项目"
+      onClose={onClose}
+    >
+      <div className="space-y-4 text-sm leading-7 text-zinc-700">
+        <p>
+          <strong className="text-zinc-950">作者：</strong>Selee1995
+        </p>
+        <p>
+          <strong className="text-zinc-950">项目：</strong>汉东人格档案
+        </p>
+        <p>
+          这是一个由 Codex 协助制作的非官方娱乐测试网站。它借用了《人民的名义》的角色气质和组织张力，
+          做成了一个能测、能看档案、能继续点角色的网页。
+        </p>
+        <div className="rounded-2xl border border-zinc-200 bg-[#fbf8f2] p-4 text-zinc-700">
+          如果你喜欢这个方向，我们后面还可以继续把角色档案、结果页文案和分享体验打磨得更完整。
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+function FeedbackModal({ contextLabel, onClose }: { contextLabel: string; onClose: () => void }) {
+  const [nickname, setNickname] = useState("");
+  const [message, setMessage] = useState("");
+  const [botField, setBotField] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (botField.trim()) {
+      setStatus("success");
+      return;
+    }
+
+    const trimmedMessage = message.trim();
+    const trimmedNickname = nickname.trim();
+
+    if (!trimmedMessage) {
+      setStatus("error");
+      setErrorMessage("先写一点建议再发送吧。");
+      return;
+    }
+
+    setStatus("sending");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nickname: trimmedNickname,
+          message: trimmedMessage,
+          source: contextLabel,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? payload.message ?? "发送失败，请稍后再试。");
+      }
+
+      setStatus("success");
+    } catch (error) {
+      setStatus("error");
+      setErrorMessage(error instanceof Error ? error.message : "发送失败，请稍后再试。");
+    }
+  }
+
+  return (
+    <ModalShell
+      eyebrow="站内反馈"
+      subtitle="你可以直接在网页里写建议，不用跳转。提交后我会收到邮件，邮箱是 1278329021@qq.com。"
+      title="想向作者提意见？"
+      onClose={onClose}
+    >
+      {status === "success" ? (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-950">
+            已发送到 <strong>1278329021@qq.com</strong>。你的建议已经进入邮箱里了，感谢你帮我继续打磨这个站点。
+          </div>
+          <button
+            className="inline-flex h-11 items-center justify-center gap-2 border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 transition hover:border-red-900/40 hover:bg-[#fbf8f2] focus:outline-none focus:ring-4 focus:ring-red-900/15"
+            onClick={onClose}
+            type="button"
+          >
+            关闭
+          </button>
+        </div>
+      ) : (
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <p className="text-sm leading-7 text-zinc-600">
+            你可以写页面体验、题目逻辑、角色档案、文案风格这些意见。建议会直接发送到
+            <strong className="text-zinc-950"> 1278329021@qq.com</strong>。
+          </p>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-zinc-800">你的称呼（可选）</span>
+            <input
+              className="w-full border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-red-900/40 focus:ring-4 focus:ring-red-900/10"
+              maxLength={50}
+              onChange={(event) => setNickname(event.target.value)}
+              placeholder="比如：老用户 / 测试同学 / 某某"
+              value={nickname}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-zinc-800">建议内容</span>
+            <textarea
+              className="min-h-36 w-full resize-y border border-zinc-200 bg-white px-4 py-3 text-sm leading-7 text-zinc-900 outline-none transition focus:border-red-900/40 focus:ring-4 focus:ring-red-900/10"
+              maxLength={2000}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="你可以直接说哪里看着别扭，哪里希望更像正式产品。"
+              required
+              value={message}
+            />
+          </label>
+          <input
+            aria-hidden="true"
+            className="hidden"
+            onChange={(event) => setBotField(event.target.value)}
+            tabIndex={-1}
+            type="text"
+            value={botField}
+          />
+          {status === "error" ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-7 text-red-900">
+              {errorMessage}
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              className="inline-flex h-11 flex-1 items-center justify-center gap-2 bg-red-900 px-5 text-sm font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={status === "sending"}
+              type="submit"
+            >
+              <Mail className="size-4" />
+              {status === "sending" ? "正在发送..." : "发送建议"}
+            </button>
+            <button
+              className="inline-flex h-11 flex-1 items-center justify-center gap-2 border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-900 transition hover:border-red-900/40 hover:bg-[#fbf8f2] focus:outline-none focus:ring-4 focus:ring-red-900/15"
+              onClick={onClose}
+              type="button"
+            >
+              取消
+            </button>
+          </div>
+        </form>
+      )}
+    </ModalShell>
   );
 }
 
