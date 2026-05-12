@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { ArrowLeft, Clipboard, FileText, Info, Mail, RefreshCcw, ShieldCheck, Sparkles, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Clipboard,
+  FileText,
+  Info,
+  Link2,
+  Lock,
+  Mail,
+  RefreshCcw,
+  Share2,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Unlock,
+  X,
+} from "lucide-react";
 import { questions } from "../data/questions";
 import { results } from "../data/results";
 import type { AnswerMap, QuizResult, ResultId } from "../data/types";
@@ -49,21 +64,103 @@ const portraitMeta: Record<ResultId, { keyword: string; seal: string; accent: st
 };
 
 const resultById = Object.fromEntries(results.map((result) => [result.id, result])) as Record<ResultId, QuizResult>;
+const resultIdSet = new Set<ResultId>(results.map((result) => result.id));
+const unlockStorageKey = "handong.unlocked.results";
+const shareHashPrefix = "#result=";
+
+function isResultId(value: string | null): value is ResultId {
+  return Boolean(value && resultIdSet.has(value as ResultId));
+}
+
+function parseResultIdFromHash(hash: string) {
+  if (!hash.startsWith(shareHashPrefix)) {
+    return null;
+  }
+
+  const rawId = decodeURIComponent(hash.slice(shareHashPrefix.length));
+  return isResultId(rawId) ? rawId : null;
+}
+
+function loadUnlockedResults() {
+  if (typeof window === "undefined") {
+    return [] as ResultId[];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(unlockStorageKey);
+    if (!raw) {
+      return [] as ResultId[];
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [] as ResultId[];
+    }
+
+    return parsed.filter((value): value is ResultId => typeof value === "string" && resultIdSet.has(value as ResultId));
+  } catch {
+    return [] as ResultId[];
+  }
+}
+
+async function copyToClipboard(value: string) {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // continue to fallback
+    }
+  }
+
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    const succeeded = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return succeeded;
+  } catch {
+    return false;
+  }
+}
+
+function buildShareUrl(resultId: ResultId) {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return `${window.location.origin}${window.location.pathname}${window.location.search}${shareHashPrefix}${encodeURIComponent(resultId)}`;
+}
 
 function App() {
-  const [stage, setStage] = useState<Stage>("landing");
+  const initialSharedResultId = typeof window === "undefined" ? null : parseResultIdFromHash(window.location.hash);
+  const [stage, setStage] = useState<Stage>(initialSharedResultId ? "result" : "landing");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
-  const [copied, setCopied] = useState(false);
+  const [sharedResultId, setSharedResultId] = useState<ResultId | null>(initialSharedResultId);
   const [activeArchiveId, setActiveArchiveId] = useState<ResultId | null>(null);
   const [dialogState, setDialogState] = useState<DialogState>(null);
   const [feedbackContext, setFeedbackContext] = useState("开始界面");
+  const [pendingUnlockId, setPendingUnlockId] = useState<ResultId | null>(null);
+  const [unlockedResults, setUnlockedResults] = useState<Set<ResultId>>(() => new Set(loadUnlockedResults()));
 
   const currentQuestion = questions[currentIndex];
   const answeredCount = Object.keys(answers).length;
   const progress = stage === "quiz" ? ((currentIndex + 1) / questions.length) * 100 : 0;
 
   const finalResult = useMemo(() => calculateResult(questions, results, answers), [answers]);
+  const displayedResult = sharedResultId ? resultById[sharedResultId] : finalResult;
   const activeArchive = activeArchiveId ? resultById[activeArchiveId] : null;
   const scoreMap = useMemo(() => getScoreMap(questions, results, answers), [answers]);
   const topScores = useMemo(
@@ -74,6 +171,8 @@ function App() {
         .map((result) => ({ result, score: scoreMap[result.id] })),
     [scoreMap],
   );
+  const shareUrl = useMemo(() => buildShareUrl(displayedResult.id), [displayedResult.id]);
+  const unlockedCount = unlockedResults.size;
   const backdropUrl =
     stage === "landing"
       ? "/backdrops/landing-office-bg.svg"
@@ -91,8 +190,12 @@ function App() {
   function startQuiz() {
     setAnswers({});
     setCurrentIndex(0);
-    setCopied(false);
+    setSharedResultId(null);
     setActiveArchiveId(null);
+    setPendingUnlockId(null);
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}`);
+    }
     setStage("quiz");
   }
 
@@ -105,8 +208,13 @@ function App() {
       return;
     }
 
+    const nextResult = calculateResult(questions, results, nextAnswers);
+    setPendingUnlockId(nextResult.id);
     setStage("loading");
-    window.setTimeout(() => setStage("result"), 900);
+    window.setTimeout(() => {
+      setActiveArchiveId(null);
+      setStage("result");
+    }, 900);
   }
 
   function goBack() {
@@ -116,12 +224,6 @@ function App() {
     }
 
     setCurrentIndex((index) => index - 1);
-  }
-
-  async function copyShareText() {
-    await navigator.clipboard.writeText(`${finalResult.shareText} 来测测你最像《人民的名义》中的谁。`);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
   }
 
   function openArchive(resultId: ResultId) {
@@ -147,6 +249,35 @@ function App() {
     setDialogState(null);
   }
 
+  useEffect(() => {
+    if (stage !== "result" || !pendingUnlockId) {
+      return;
+    }
+
+    setUnlockedResults((previous) => {
+      if (previous.has(pendingUnlockId)) {
+        return previous;
+      }
+
+      const next = new Set(previous);
+      next.add(pendingUnlockId);
+      return next;
+    });
+    setPendingUnlockId(null);
+  }, [pendingUnlockId, stage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(unlockStorageKey, JSON.stringify([...unlockedResults]));
+    } catch {
+      // ignore storage failures
+    }
+  }, [unlockedResults]);
+
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#f6f1e8] text-zinc-950">
       <div className="pointer-events-none fixed inset-0 z-0 bg-[#eadcc4]">
@@ -158,7 +289,15 @@ function App() {
       </div>
 
       <div className="relative z-10">
-        {stage === "landing" && <LandingPage onStart={startQuiz} onOpenFeedback={openFeedback} onOpenAbout={openAbout} />}
+        {stage === "landing" && (
+          <LandingPage
+            onStart={startQuiz}
+            onOpenAbout={openAbout}
+            onOpenFeedback={openFeedback}
+            unlockedCount={unlockedCount}
+            unlockedResults={unlockedResults}
+          />
+        )}
         {stage === "quiz" && (
           <QuizPage
             currentIndex={currentIndex}
@@ -174,13 +313,13 @@ function App() {
         )}
         {stage === "result" && !activeArchive && (
           <ResultPage
-            result={finalResult}
+            result={displayedResult}
+            shareUrl={shareUrl}
             topScores={topScores}
-            copied={copied}
-            onCopy={copyShareText}
+            showTopScores={answeredCount > 0}
             onOpenArchive={openArchive}
             onRestart={startQuiz}
-            onOpenFeedback={() => openFeedback(`结果页 · ${finalResult.name}`)}
+            onOpenFeedback={() => openFeedback(`结果页 · ${displayedResult.name}`)}
             onOpenAbout={openAbout}
           />
         )}
@@ -189,7 +328,13 @@ function App() {
         {dialogState === "about" && <AboutModal onClose={closeDialog} />}
 
         <footer className="mx-auto max-w-5xl px-5 pb-6 text-center text-xs leading-5 text-zinc-500">
-          {answeredCount > 0 && stage !== "landing" ? `已记录 ${answeredCount}/${questions.length} 道选择。` : disclaimer}
+          {stage === "landing"
+            ? disclaimer
+            : answeredCount > 0
+              ? `已记录 ${answeredCount}/${questions.length} 道选择。`
+              : sharedResultId
+                ? "你正在查看一个分享出来的结果页。完成测验后，可生成你自己的汉东人物档案。"
+                : disclaimer}
         </footer>
       </div>
     </main>
@@ -200,33 +345,44 @@ function LandingPage({
   onStart,
   onOpenFeedback,
   onOpenAbout,
+  unlockedCount,
+  unlockedResults,
 }: {
   onStart: () => void;
   onOpenFeedback: (context: string) => void;
   onOpenAbout: () => void;
+  unlockedCount: number;
+  unlockedResults: Set<ResultId>;
 }) {
   return (
-    <section className="relative isolate mx-auto flex min-h-[calc(100vh-48px)] max-w-5xl flex-col justify-between overflow-hidden px-5 py-6 sm:px-8 lg:py-10">
-      <img
-        alt="原创群像剪影"
-        className="pointer-events-none absolute -right-[430px] bottom-24 z-0 h-[520px] max-w-none opacity-60 mix-blend-multiply sm:-right-52 sm:h-[620px] lg:hidden"
-        src="/backdrops/cast-silhouette-4x3.png"
-        style={{
-          WebkitMaskImage: "linear-gradient(to left, black 42%, rgba(0,0,0,0.72) 62%, transparent 92%)",
-          maskImage: "linear-gradient(to left, black 42%, rgba(0,0,0,0.72) 62%, transparent 92%)",
-        }}
-      />
-      <div className="absolute inset-x-0 bottom-0 z-0 h-56 bg-gradient-to-t from-[#f6f1e8] via-[#f6f1e8]/80 to-transparent lg:hidden" />
-
-      <nav className="relative z-10 flex items-center justify-between text-sm text-zinc-700">
+    <section className="mx-auto max-w-6xl px-5 py-6 sm:px-8 lg:py-10">
+      <nav className="mb-5 flex items-center justify-between text-sm text-zinc-700">
         <span className="inline-flex items-center gap-2 font-medium">
           <FileText className="size-4" />
           汉东人格档案
         </span>
-        <span>16 题</span>
+        <span>16 题 · 12 人物图鉴</span>
       </nav>
 
-      <div className="relative z-10 grid items-end gap-8 py-10 lg:grid-cols-[1fr_360px]">
+      <div className="overflow-hidden border border-red-950/15 bg-[#17110f] shadow-seal">
+        <div className="relative aspect-[16/9] min-h-[240px] sm:aspect-[21/9] sm:min-h-[280px]">
+          <img
+            alt="原创群像剪影"
+            className="absolute inset-0 h-full w-full object-cover object-top opacity-95"
+            src="/backdrops/cast-silhouette-4x3.png"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,8,7,0.18)_0%,rgba(11,8,7,0.22)_38%,rgba(11,8,7,0.92)_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
+            <p className="inline-flex items-center gap-2 border border-white/10 bg-black/30 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-white/70">
+              <ShieldCheck className="size-4" />
+              HANDONG ARCHIVE
+            </p>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/76">{disclaimer}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_360px]">
         <div className="max-w-3xl">
           <p className="mb-4 inline-flex items-center gap-2 border border-red-900/20 bg-white/55 px-3 py-1 text-sm text-red-950 shadow-sm">
             <ShieldCheck className="size-4" />
@@ -237,8 +393,22 @@ function LandingPage({
             <span className="block text-red-900">《人民的名义》中的谁</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-700">
-            一份不太正经的复杂组织生存测试。你是调查者、改革派、权谋型观察者，还是低电量避险者？
+            这不是简单的“像谁”测试，而是一份带着组织气质的角色档案。你是调查者、改革派、权谋观察者，还是低调避险者？
           </p>
+          <div className="mt-6 flex flex-wrap gap-3 text-sm text-zinc-700">
+            <span className="inline-flex items-center gap-2 border border-zinc-200 bg-white/80 px-3 py-2 shadow-sm">
+              <Sparkles className="size-4 text-red-900" />
+              16 道题
+            </span>
+            <span className="inline-flex items-center gap-2 border border-zinc-200 bg-white/80 px-3 py-2 shadow-sm">
+              <FileText className="size-4 text-red-900" />
+              12 个角色
+            </span>
+            <span className="inline-flex items-center gap-2 border border-zinc-200 bg-white/80 px-3 py-2 shadow-sm">
+              <Unlock className="size-4 text-red-900" />
+              已解锁 {unlockedCount} 个
+            </span>
+          </div>
           <button
             className="mt-8 inline-flex h-12 items-center justify-center gap-2 bg-red-900 px-6 text-base font-semibold text-white shadow-seal transition hover:bg-red-800 focus:outline-none focus:ring-4 focus:ring-red-900/20"
             onClick={onStart}
@@ -267,27 +437,110 @@ function LandingPage({
           </div>
         </div>
 
-        <div className="relative hidden min-h-[520px] overflow-hidden border border-red-950/15 bg-[#17110f] p-6 shadow-seal lg:block">
-          <img
-            alt="原创群像剪影"
-            className="absolute inset-0 h-full w-full object-cover opacity-95"
-            src="/backdrops/cast-silhouette-4x3.png"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-          <div className="relative flex h-full flex-col justify-between">
+        <aside className="overflow-hidden border border-red-950/10 bg-white/74 p-5 shadow-seal backdrop-blur">
+          <p className="text-sm font-semibold text-red-900">图鉴进度</p>
+          <div className="mt-4 flex items-end justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-red-100">内部流转 / 群像档案</p>
-              <div className="mt-8 space-y-3 text-3xl font-black text-white">
-                <p>权力关系</p>
-                <p>风险边界</p>
-                <p>组织生存</p>
-              </div>
+              <p className="text-4xl font-black text-zinc-950">{unlockedCount}</p>
+              <p className="text-sm text-zinc-600">/ {results.length} 已解锁</p>
             </div>
-            <p className="text-sm leading-6 text-white/68">{disclaimer}</p>
+            <span className="inline-flex items-center gap-2 border border-red-900/15 bg-[#fbf8f2] px-3 py-2 text-xs font-semibold text-zinc-800">
+              <Lock className="size-4 text-red-900" />
+              本机保存
+            </span>
           </div>
+          <div className="mt-4 h-2 overflow-hidden bg-zinc-200">
+            <div className="h-full bg-red-900" style={{ width: `${Math.max(6, (unlockedCount / results.length) * 100)}%` }} />
+          </div>
+          <p className="mt-4 text-sm leading-7 text-zinc-600">
+            每测出一个新角色，就会自动解锁对应人物档案。结果会保存在本机，后续回来还能继续累积。
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold text-zinc-700">
+            <span className="border border-zinc-200 bg-[#fbf8f2] px-3 py-2">结果解锁</span>
+            <span className="border border-zinc-200 bg-[#fbf8f2] px-3 py-2">角色档案</span>
+            <span className="border border-zinc-200 bg-[#fbf8f2] px-3 py-2">站内反馈</span>
+          </div>
+        </aside>
+      </div>
+
+      <section className="mt-10">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-red-900/70">汉东人物图鉴</p>
+            <h2 className="mt-2 text-3xl font-black text-zinc-950">解锁的人物，会逐渐把你的图鉴填满</h2>
+          </div>
+          <p className="max-w-xl text-sm leading-7 text-zinc-600">
+            没解锁的角色会保持锁定状态。测出新结果后，图鉴会自动更新，不用额外操作。
+          </p>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {results.map((result) => (
+            <CharacterGalleryCard key={result.id} result={result} unlocked={unlockedResults.has(result.id)} />
+          ))}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function CharacterGalleryCard({
+  result,
+  unlocked,
+}: {
+  result: QuizResult;
+  unlocked: boolean;
+}) {
+  const meta = portraitMeta[result.id];
+
+  return (
+    <article className="overflow-hidden border border-red-950/10 bg-white/74 shadow-seal backdrop-blur">
+      <div className="relative aspect-[4/5] overflow-hidden bg-[#17110f]">
+        <img
+          alt={`${result.name} 图鉴剪影`}
+          className={`h-full w-full object-cover object-center transition duration-300 ${
+            unlocked ? "opacity-100" : "scale-[1.03] opacity-40 grayscale"
+          }`}
+          src={`/characters/${result.id}.webp`}
+        />
+        <div
+          className={`absolute inset-0 ${
+            unlocked
+              ? "bg-[linear-gradient(180deg,rgba(11,8,7,0.08)_0%,rgba(11,8,7,0.25)_52%,rgba(11,8,7,0.92)_100%)]"
+              : "bg-[linear-gradient(180deg,rgba(11,8,7,0.12)_0%,rgba(11,8,7,0.56)_50%,rgba(11,8,7,0.96)_100%)]"
+          }`}
+        />
+        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+          <span
+            className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] ${
+              unlocked ? "border-emerald-200/20 bg-emerald-500/20 text-emerald-50" : "border-white/10 bg-black/25 text-white/68"
+            }`}
+          >
+            {unlocked ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
+            {unlocked ? "已解锁" : "锁定中"}
+          </span>
+          <span className="inline-flex size-9 items-center justify-center border border-white/10 bg-black/25 text-sm font-black text-white/76">
+            {meta.seal}
+          </span>
+        </div>
+        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/50">Archive Portrait</p>
+          {unlocked ? (
+            <>
+              <h3 className="mt-2 text-2xl font-black leading-tight">{result.name}</h3>
+              <p className="mt-1 text-sm font-semibold text-white/70">{result.archetype}</p>
+              <p className="mt-3 text-sm leading-6 text-white/82">{meta.keyword}</p>
+            </>
+          ) : (
+            <>
+              <h3 className="mt-2 text-2xl font-black leading-tight">待解锁</h3>
+              <p className="mt-1 text-sm font-semibold text-white/70">测出对应人物后自动解锁</p>
+              <p className="mt-3 text-sm leading-6 text-white/82">解锁后可查看角色名、气质标签和档案信息。</p>
+            </>
+          )}
         </div>
       </div>
-    </section>
+    </article>
   );
 }
 
@@ -366,23 +619,96 @@ function LoadingPage() {
 
 function ResultPage({
   result,
+  shareUrl,
   topScores,
-  copied,
-  onCopy,
+  showTopScores,
   onOpenArchive,
   onRestart,
   onOpenFeedback,
   onOpenAbout,
 }: {
   result: QuizResult;
+  shareUrl: string;
   topScores: Array<{ result: QuizResult; score: number }>;
-  copied: boolean;
-  onCopy: () => void;
+  showTopScores: boolean;
   onOpenArchive: (resultId: ResultId) => void;
   onRestart: () => void;
   onOpenFeedback: () => void;
   onOpenAbout: () => void;
 }) {
+  const [copyState, setCopyState] = useState<"idle" | "text" | "link">("idle");
+  const [shareHint, setShareHint] = useState("");
+
+  async function copyShareText() {
+    const success = await copyToClipboard(`${result.shareText}\n${shareUrl}`);
+    setCopyState(success ? "text" : "idle");
+    setShareHint(success ? "已复制分享文案，可以直接粘到微信里。" : "复制失败了，试试手动复制下面的链接。");
+    window.setTimeout(() => setCopyState((current) => (current === "text" ? "idle" : current)), 1600);
+  }
+
+  async function copyShareLink() {
+    const success = await copyToClipboard(shareUrl);
+    setCopyState(success ? "link" : "idle");
+    setShareHint(success ? "已复制结果链接。链接后面带有结果标记，方便再次打开。" : "链接复制失败了，试试系统分享按钮。");
+    window.setTimeout(() => setCopyState((current) => (current === "link" ? "idle" : current)), 1600);
+  }
+
+  async function shareNative() {
+    const payload = {
+      title: `${result.name} · 汉东人格档案`,
+      text: `${result.shareText}\n${shareUrl}`,
+      url: shareUrl,
+    };
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share(payload);
+        setShareHint("已调起系统分享面板，微信通常会在这里面出现。");
+        return;
+      } catch {
+        // continue to WeChat scheme fallback
+      }
+    }
+
+    if (typeof document !== "undefined") {
+      const anchor = document.createElement("a");
+      anchor.href = "weixin://dl/moments";
+      anchor.rel = "noreferrer";
+      anchor.target = "_blank";
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    }
+
+    const success = await copyToClipboard(`${result.shareText}\n${shareUrl}`);
+    setShareHint(
+      success
+        ? "已经尝试唤起微信。如果设备没响应，分享文案也已复制到剪贴板。"
+        : "已经尝试唤起微信。如果设备没响应，请用复制链接按钮手动分享。",
+    );
+  }
+
+  async function openWeChatDirect() {
+    if (typeof document !== "undefined") {
+      const anchor = document.createElement("a");
+      anchor.href = "weixin://dl/moments";
+      anchor.rel = "noreferrer";
+      anchor.target = "_blank";
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    }
+
+    const copied = await copyToClipboard(`${result.shareText}\n${shareUrl}`);
+    setShareHint(
+      copied
+        ? "已尝试直接打开微信，如果设备没有反应，文案也已复制到剪贴板。"
+        : "已尝试直接打开微信，如果设备没有反应，请使用复制链接按钮。",
+    );
+  }
+
   return (
     <section className="mx-auto max-w-4xl px-5 py-6 sm:px-8 lg:py-10">
       <article className="overflow-hidden border border-red-950/10 bg-white shadow-seal">
@@ -407,22 +733,28 @@ function ResultPage({
             <p className="border-l-4 border-red-900 bg-[#fbf8f2] p-4 leading-7 text-zinc-700">{result.advice}</p>
           </section>
 
-          <section>
-            <h3 className="mb-3 text-sm font-bold text-red-900">人格接近度前三</h3>
-            <div className="space-y-3">
-              {topScores.map(({ result: scoreResult, score }) => (
-                <div key={scoreResult.id}>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span>{scoreResult.name}</span>
-                    <span>{score}</span>
+          {showTopScores ? (
+            <section>
+              <h3 className="mb-3 text-sm font-bold text-red-900">人格接近度前三</h3>
+              <div className="space-y-3">
+                {topScores.map(({ result: scoreResult, score }) => (
+                  <div key={scoreResult.id}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span>{scoreResult.name}</span>
+                      <span>{score}</span>
+                    </div>
+                    <div className="h-2 bg-zinc-200">
+                      <div className="h-full bg-red-900" style={{ width: `${Math.min(100, Math.max(8, score * 6))}%` }} />
+                    </div>
                   </div>
-                  <div className="h-2 bg-zinc-200">
-                    <div className="h-full bg-red-900" style={{ width: `${Math.min(100, Math.max(8, score * 6))}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="rounded-none border border-zinc-200 bg-[#fbf8f2] p-4 text-sm leading-7 text-zinc-600">
+              完整测验后，这里会显示接近度前三。你现在也可以先把这份结果分享出去，或者重新开始测试。
+            </section>
+          )}
 
           <section>
             <h3 className="mb-3 text-sm font-bold text-red-900">适配搭档</h3>
@@ -454,18 +786,60 @@ function ResultPage({
           </section>
 
           <section className="lg:col-span-2">
-            <h3 className="mb-3 text-sm font-bold text-red-900">分享文案</h3>
-            <p className="min-h-20 bg-[#fbf8f2] p-4 leading-7 text-zinc-800">{result.shareText}</p>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <h3 className="inline-flex items-center gap-2 text-sm font-bold text-red-900">
+                <Share2 className="size-4" />
+                分享界面
+              </h3>
+              <p className="text-xs text-zinc-500">支持复制、系统分享和微信尝试</p>
+            </div>
+            <div className="mt-3 border border-red-900/10 bg-[#fbf8f2] p-4">
+              <p className="text-sm font-semibold text-zinc-900">
+                {result.name} · {result.archetype}
+              </p>
+              <p className="mt-2 leading-7 text-zinc-800">{result.shareText}</p>
+              <p className="mt-3 break-all text-xs leading-6 text-zinc-500">{shareUrl}</p>
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <button
+                className="inline-flex h-12 items-center justify-center gap-2 border border-red-900/20 bg-white px-4 text-sm font-semibold text-zinc-900 transition hover:border-red-900/40 hover:bg-[#fbf8f2] focus:outline-none focus:ring-4 focus:ring-red-900/15"
+                onClick={copyShareLink}
+                type="button"
+              >
+                <Link2 className="size-4" />
+                {copyState === "link" ? "已复制链接" : "复制结果链接"}
+              </button>
+              <button
+                className="inline-flex h-12 items-center justify-center gap-2 border border-red-900/20 bg-white px-4 text-sm font-semibold text-zinc-900 transition hover:border-red-900/40 hover:bg-[#fbf8f2] focus:outline-none focus:ring-4 focus:ring-red-900/15"
+                onClick={shareNative}
+                type="button"
+              >
+                <Smartphone className="size-4" />
+                系统分享
+              </button>
+              <button
+                className="inline-flex h-12 items-center justify-center gap-2 bg-red-900 px-4 text-sm font-semibold text-white transition hover:bg-red-800 focus:outline-none focus:ring-4 focus:ring-red-900/20"
+                onClick={openWeChatDirect}
+                type="button"
+              >
+                <Share2 className="size-4" />
+                打开微信
+              </button>
+            </div>
+            <p className="mt-3 text-sm leading-7 text-zinc-600">
+              {shareHint ||
+                "在支持的手机浏览器里，系统分享面板通常能直接选微信；桌面端会先尝试唤起微信客户端。"}
+            </p>
           </section>
 
           <div className="flex flex-col gap-3 sm:flex-row lg:col-span-2">
             <button
               className="inline-flex h-12 flex-1 items-center justify-center gap-2 bg-red-900 px-5 font-semibold text-white transition hover:bg-red-800 focus:outline-none focus:ring-4 focus:ring-red-900/20"
-              onClick={onCopy}
+              onClick={copyShareText}
               type="button"
             >
               <Clipboard className="size-5" />
-              {copied ? "已复制" : "复制分享文案"}
+              {copyState === "text" ? "已复制" : "复制分享文案"}
             </button>
             <button
               className="inline-flex h-12 flex-1 items-center justify-center gap-2 border border-zinc-300 bg-white px-5 font-semibold text-zinc-900 transition hover:border-red-900/40 focus:outline-none focus:ring-4 focus:ring-red-900/15"
