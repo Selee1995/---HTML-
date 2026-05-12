@@ -20,6 +20,7 @@ import { questions } from "../data/questions";
 import { results } from "../data/results";
 import type { AnswerMap, QuizResult, ResultId } from "../data/types";
 import { calculateResult, getScoreMap } from "../utils/scoring";
+import { withBasePath } from "./lib/base-path";
 
 type Stage = "landing" | "quiz" | "loading" | "result";
 type DialogState = "feedback" | "about" | null;
@@ -175,10 +176,10 @@ function App() {
   const unlockedCount = unlockedResults.size;
   const backdropUrl =
     stage === "landing"
-      ? "/backdrops/landing-office-bg.svg"
+      ? withBasePath("backdrops/landing-office-bg.svg")
       : stage === "quiz"
-        ? "/backdrops/quiz-dossier-bg.svg"
-        : "/backdrops/institutional-bg.svg";
+        ? withBasePath("backdrops/quiz-dossier-bg.svg")
+        : withBasePath("backdrops/institutional-bg.svg");
   const backdropOverlay =
     stage === "landing"
       ? "bg-[linear-gradient(90deg,rgba(246,241,232,0.8)_0%,rgba(246,241,232,0.58)_45%,rgba(246,241,232,0.16)_100%),radial-gradient(circle_at_18%_28%,rgba(255,255,255,0.52),transparent_34%)]"
@@ -369,7 +370,7 @@ function LandingPage({
           <img
             alt="原创群像剪影"
             className="absolute inset-0 h-full w-full object-cover object-top opacity-95"
-            src="/backdrops/cast-silhouette-4x3.png"
+            src={withBasePath("backdrops/cast-silhouette-4x3.png")}
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,8,7,0.18)_0%,rgba(11,8,7,0.22)_38%,rgba(11,8,7,0.92)_100%)]" />
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
@@ -501,7 +502,7 @@ function CharacterGalleryCard({
           className={`h-full w-full object-cover object-center transition duration-300 ${
             unlocked ? "opacity-100" : "scale-[1.03] opacity-40 grayscale"
           }`}
-          src={`/characters/${result.id}.webp`}
+          src={withBasePath(`characters/${result.id}.webp`)}
         />
         <div
           className={`absolute inset-0 ${
@@ -968,7 +969,7 @@ function CharacterPortrait({ result }: { result: QuizResult }) {
           alt={`${result.name} 原创档案风剪影`}
           className="h-full w-full object-cover"
           onError={() => setImageFailed(true)}
-          src={`/characters/${result.id}.webp`}
+          src={withBasePath(`characters/${result.id}.webp`)}
         />
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/55">Archive Portrait</p>
@@ -1178,7 +1179,7 @@ function FeedbackModal({ contextLabel, onClose }: { contextLabel: string; onClos
     setErrorMessage("");
 
     try {
-      const response = await fetch("/api/feedback", {
+      const response = await fetch(withBasePath("api/feedback"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
