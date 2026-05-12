@@ -19,6 +19,10 @@
   ],
   "rewrites": [
     {
+      "source": "/HanDongtest/",
+      "destination": "/index.html"
+    },
+    {
       "source": "/HanDongtest/:path*",
       "destination": "/:path*"
     }
